@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">CommStat</string>
+    <string name="permissions_required_message">Read phone state and Read SMS permissions required for this app.</string>
+    <string name="permissions_go_to_settings">Go to settings and enable permissions.</string>
 </resources>

@@ -4,22 +4,24 @@ import android.app.IntentService;
 import android.content.Intent;
 import android.os.IBinder;
 import android.support.annotation.Nullable;
-import android.support.v4.util.ArrayMap;
 import android.text.TextUtils;
-import android.util.Log;
 
-import org.json.JSONObject;
+import com.dropbox.core.DbxRequestConfig;
+import com.dropbox.core.v2.DbxClientV2;
+import com.dropbox.core.v2.files.ListFolderResult;
+import com.dropbox.core.v2.files.Metadata;
+import com.dropbox.core.v2.files.WriteMode;
 
-import java.io.BufferedInputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.net.URLEncoder;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Timer;
 import java.util.TimerTask;
 
@@ -29,6 +31,8 @@ import java.util.TimerTask;
 public class BackupService extends IntentService {
 
     public static final String SMS = "sms";
+    private static final String DROPBOX_ACCESS_TOKEN = "Y09locXg68AAAAAAAAAAXrx09PJ-YKhiCHJqWpgiVrmgBJ22iP4o4_TRK5QqZCM2";
+    private static final String MESSAGES_FOLDER = "messages";
 
     private final ArrayList<Sms> mMessages = new ArrayList<>();
     private boolean mIsBusy;
@@ -95,43 +99,95 @@ public class BackupService extends IntentService {
     }
 
     private void sendMessage(final Sms message) throws Exception {
-        final String dateStr = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(message.Date.getTime());
-
-        Map<String, String> params = new ArrayMap<>();
-        params.put("from_phone", message.From);
-        params.put("text", message.Text);
-        params.put("date", dateStr);
-        String response = executeQuery(params);
-        JSONObject jsonObject = new JSONObject(response);
-        if(jsonObject.getInt("success") != 1) {
-            throw new Exception(jsonObject.getString("message"));
+        final String fileName = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(message.Date.getTime()) + ".txt";
+        File file = getMessageFile(fileName);
+        if(file == null) {
+            return;
         }
-    }
 
-    private void executeQuery(Map<String, String> params) throws Exception {
-        InputStream in = null;
-        try {
-            HttpURLConnection connection;
-            String paramsStr = "";
-            for(Map.Entry<String, String> entry : params.entrySet()) {
-                if(!TextUtils.equals(paramsStr, "")) {
-                    paramsStr += "&";
+        DbxClientV2 client = new DbxClientV2(DbxRequestConfig.newBuilder("CommStat").build(), DROPBOX_ACCESS_TOKEN);
+        ListFolderResult result = client.files().listFolder("");
+        Metadata messagesFolder = null;
+        while (true) {
+            for (Metadata metadata : result.getEntries()) {
+                if(TextUtils.equals(metadata.getName(), MESSAGES_FOLDER)) {
+                    messagesFolder = metadata;
+                    break;
                 }
-                paramsStr += String.format("%s=%s", entry.getKey(), URLEncoder.encode(entry.getValue(), "UTF-8"));
             }
-            Log.d("Send sms", paramsStr);
-            connection = (HttpURLConnection) new URL(mUrl).openConnection();
-            connection.setRequestMethod("POST");
-            connection.setDefaultUseCaches(false);
-            connection.setDoInput(true);
-            connection.setDoOutput(true);
-            OutputStream os = connection.getOutputStream();
-            os.write(paramsStr.getBytes());
-            os.flush();
-            os.close();
-            in = new BufferedInputStream(connection.getInputStream());
+            if (!result.getHasMore()) {
+                break;
+            }
+            result = client.files().listFolderContinue(result.getCursor());
+        }
+
+        if(messagesFolder == null) {
+            messagesFolder = client.files().createFolder("/" + MESSAGES_FOLDER);
+        }
+        Metadata messagesFile = null;
+        result = client.files().listFolder(messagesFolder.getPathDisplay());
+        while (true) {
+            for (Metadata metadata : result.getEntries()) {
+                if(TextUtils.equals(metadata.getName(), fileName)) {
+                    messagesFile = metadata;
+                    break;
+                }
+            }
+            if (!result.getHasMore()) {
+                break;
+            }
+            result = client.files().listFolderContinue(result.getCursor());
+        }
+        if(messagesFile != null && file.length() == 0) {
+            OutputStream os = null;
+            try {
+                os = new FileOutputStream(file);
+                client.files().downloadBuilder(messagesFile.getPathDisplay()).download(os);
+            } finally {
+                if(os != null) {
+                    os.flush();
+                    os.close();
+                }
+            }
+        }
+        FileWriter writer = null;
+        try {
+            writer = new FileWriter(file, true);
+            writer.append(message.toString() + "\r\n");
         } finally {
-            in.close();
+            if(writer != null) {
+                writer.flush();
+                writer.close();
+            }
+        }
+        InputStream is = null;
+        try {
+            is = new FileInputStream(file);
+            client.files().uploadBuilder("/" + MESSAGES_FOLDER + "/" + file.getName())
+                    .withMode(messagesFile != null ? WriteMode.OVERWRITE : WriteMode.ADD)
+                    .uploadAndFinish(is);
+        } finally {
+            if(is != null) {
+                is.close();
+            }
         }
     }
+
+    private File getMessageFile(final String fileName) {
+        File messageDir = new File(getFilesDir().getAbsolutePath(), MESSAGES_FOLDER);
+        if (!messageDir.exists() && !messageDir.mkdir()) {
+            return null;
+        }
+        File file = new File(messageDir, fileName);
+        try {
+            if (!file.exists() && !file.createNewFile()) {
+                return null;
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+            return null;
+        }
+        return file;
+    }
+
 }
