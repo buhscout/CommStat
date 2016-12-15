@@ -1,10 +1,14 @@
 package com.android.commstat;
 
+import android.Manifest;
 import android.app.IntentService;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.os.IBinder;
 import android.support.annotation.Nullable;
+import android.support.v4.content.ContextCompat;
 import android.text.TextUtils;
+import android.util.Log;
 
 import com.dropbox.core.DbxRequestConfig;
 import com.dropbox.core.v2.DbxClientV2;
@@ -14,20 +18,15 @@ import com.dropbox.core.v2.files.WriteMode;
 
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Locale;
 import java.util.Timer;
 import java.util.TimerTask;
 
-/**
- * Created by Scout on 12.12.2016.
- */
 public class BackupService extends IntentService {
 
     public static final String SMS = "sms";
@@ -99,12 +98,25 @@ public class BackupService extends IntentService {
     }
 
     private void sendMessage(final Sms message) throws Exception {
-        final String fileName = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(message.Date.getTime()) + ".txt";
+        if(ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+            Log.d("Permission exception", "Permission WRITE_EXTERNAL_STORAGE is not granted");
+            return;
+        }
+        final String fileName = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(message.getDate().getTime()) + ".txt";
         File file = getMessageFile(fileName);
         if(file == null) {
             return;
         }
-
+        if(!message.isWrite()) {
+            FileWriter writer = null;
+            try {
+                writer = new FileWriter(file, true);
+                writer.append(message.toString()).append("\r\n");
+                message.setIsWrite(true);
+            } finally {
+                IOUtils.closeQuietly(writer);
+            }
+        }
         DbxClientV2 client = new DbxClientV2(DbxRequestConfig.newBuilder("CommStat").build(), DROPBOX_ACCESS_TOKEN);
         ListFolderResult result = client.files().listFolder("");
         Metadata messagesFolder = null;
@@ -138,28 +150,15 @@ public class BackupService extends IntentService {
             }
             result = client.files().listFolderContinue(result.getCursor());
         }
-        if(messagesFile != null && file.length() == 0) {
+        /*if(messagesFile != null && file.length() == 0) {
             OutputStream os = null;
             try {
                 os = new FileOutputStream(file);
                 client.files().downloadBuilder(messagesFile.getPathDisplay()).download(os);
             } finally {
-                if(os != null) {
-                    os.flush();
-                    os.close();
-                }
+                IOUtils.closeQuietly(os);
             }
-        }
-        FileWriter writer = null;
-        try {
-            writer = new FileWriter(file, true);
-            writer.append(message.toString() + "\r\n");
-        } finally {
-            if(writer != null) {
-                writer.flush();
-                writer.close();
-            }
-        }
+        }*/
         InputStream is = null;
         try {
             is = new FileInputStream(file);
@@ -167,9 +166,7 @@ public class BackupService extends IntentService {
                     .withMode(messagesFile != null ? WriteMode.OVERWRITE : WriteMode.ADD)
                     .uploadAndFinish(is);
         } finally {
-            if(is != null) {
-                is.close();
-            }
+            IOUtils.closeQuietly(is);
         }
     }
 

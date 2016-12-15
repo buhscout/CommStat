@@ -17,19 +17,17 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collections;
 
-public class BackupBroadcastReceiver extends BroadcastReceiver {
+public class IncominsMessageBroadcastReceiver extends BroadcastReceiver {
+    private static final String SMS_RECEIVED_ACTION = "android.provider.Telephony.SMS_RECEIVED";
+
     @Override
     public void onReceive(Context context, Intent intent) {
         if (intent == null || intent.getAction() == null) {
             return;
         }
-        if("android.provider.Telephony.SMS_RECEIVED".compareToIgnoreCase(intent.getAction()) == 0) {
+        if(SMS_RECEIVED_ACTION.compareToIgnoreCase(intent.getAction()) == 0) {
             if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_SMS) != PackageManager.PERMISSION_GRANTED) {
                 Log.d("Permission exception", "Permission READ_SMS is not granted");
-                return;
-            }
-            if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_PHONE_STATE) != PackageManager.PERMISSION_GRANTED) {
-                Log.d("Permission exception", "Permission READ_PHONE_STATE is not granted");
                 return;
             }
             ArrayList<SmsMessage> messages = new ArrayList<>();
@@ -51,14 +49,12 @@ public class BackupBroadcastReceiver extends BroadcastReceiver {
             for (SmsMessage sms : messages) {
                 Sms message = messagesMap.get(sms.getOriginatingAddress());
                 if (message == null) {
-                    message = new Sms();
                     Calendar date = Calendar.getInstance();
                     date.setTimeInMillis(sms.getTimestampMillis());
-                    message.Date = date.getTime();
-                    message.From = sms.getOriginatingAddress();
+                    message = new Sms(sms.getOriginatingAddress(), date.getTime(), false);
                     messagesMap.put(sms.getOriginatingAddress(), message);
                 }
-                message.Text = message.Text == null ? sms.getMessageBody() : message.Text + sms.getMessageBody();
+                message.setMessage(message.getMessage() == null ? sms.getMessageBody() : message.getMessage() + sms.getMessageBody());
             }
             for (Sms message : messagesMap.values()) {
                 Intent mIntent = new Intent(context, BackupService.class);
