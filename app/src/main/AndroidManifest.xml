@@ -26,7 +26,7 @@
             android:enabled="true">
         </service>
         <receiver
-            android:name=".IncominsMessageBroadcastReceiver"
+            android:name=".IncomingMessageBroadcastReceiver"
             android:permission="android.permission.BROADCAST_SMS"
             android:enabled="true"
             android:exported="true">
@@ -35,7 +35,6 @@
 
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.QUICKBOOT_POWERON"/>
-                <action android:name="android.intent.action.REBOOT"/>
                 <category android:name="android.intent.category.DEFAULT"/>
             </intent-filter>
         </receiver>

@@ -17,12 +17,19 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collections;
 
-public class IncominsMessageBroadcastReceiver extends BroadcastReceiver {
+public class IncomingMessageBroadcastReceiver extends BroadcastReceiver {
     private static final String SMS_RECEIVED_ACTION = "android.provider.Telephony.SMS_RECEIVED";
+    private static final String BOOT_COMPLETED_ACTION = "android.intent.action.BOOT_COMPLETED";
+    private static final String QUICKBOOT_POWERON_ACTION = "android.intent.action.QUICKBOOT_POWERON";
 
     @Override
     public void onReceive(Context context, Intent intent) {
         if (intent == null || intent.getAction() == null) {
+            return;
+        }
+        if(QUICKBOOT_POWERON_ACTION.compareToIgnoreCase(intent.getAction()) == 0
+            || BOOT_COMPLETED_ACTION.compareToIgnoreCase(intent.getAction()) == 0) {
+            OutgoingMessageObserver.register(context);
             return;
         }
         if(SMS_RECEIVED_ACTION.compareToIgnoreCase(intent.getAction()) == 0) {
