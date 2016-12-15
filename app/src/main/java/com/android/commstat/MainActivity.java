@@ -24,7 +24,7 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         checkAndRequestPermissions();
-        OutgoingMessageObserver.register(this);
+        OutgoingMessageObserver.register(getApplicationContext());
     }
 
     private boolean checkAndRequestPermissions() {
