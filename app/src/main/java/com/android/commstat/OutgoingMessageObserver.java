@@ -13,11 +13,11 @@ import java.util.Calendar;
 
 class OutgoingMessageObserver extends ContentObserver {
     private static boolean IsRegistered;
-    static final String CONTENT_SMS = "content://sms/";
+    private static final String CONTENT_SMS = "content://sms/";
     private static long mLastMessageId = 0;
     private Context mContext;
 
-    public static void register(Context context) {
+    static void register(Context context) {
         if(!IsRegistered) {
             ContentResolver contentResolver = context.getContentResolver();
             contentResolver.registerContentObserver(Uri.parse(OutgoingMessageObserver.CONTENT_SMS), true, new OutgoingMessageObserver(context, new Handler()));
@@ -25,7 +25,7 @@ class OutgoingMessageObserver extends ContentObserver {
         }
     }
 
-    OutgoingMessageObserver(Context context, Handler handler) {
+    private OutgoingMessageObserver(Context context, Handler handler) {
         super(handler);
         mContext = context;
     }

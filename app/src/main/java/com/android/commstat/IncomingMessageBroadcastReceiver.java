@@ -27,8 +27,13 @@ public class IncomingMessageBroadcastReceiver extends BroadcastReceiver {
         if (intent == null || intent.getAction() == null) {
             return;
         }
+        if("commstat.permission.REGISTER_RECEIVER".compareToIgnoreCase(intent.getAction()) == 0) {
+            Intent serviceIntent = new Intent(context, OutgoingSmsService.class);
+            context.startService(serviceIntent);
+            return;
+        }
         if(QUICKBOOT_POWERON_ACTION.compareToIgnoreCase(intent.getAction()) == 0
-            || BOOT_COMPLETED_ACTION.compareToIgnoreCase(intent.getAction()) == 0) {
+                || BOOT_COMPLETED_ACTION.compareToIgnoreCase(intent.getAction()) == 0) {
             OutgoingMessageObserver.register(context);
             return;
         }

@@ -2,6 +2,7 @@ package com.android.commstat;
 
 import android.Manifest;
 import android.content.DialogInterface;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
@@ -24,7 +25,8 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         checkAndRequestPermissions();
-        OutgoingMessageObserver.register(getApplicationContext());
+        Intent i = new Intent("commstat.permission.REGISTER_RECEIVER");
+        sendBroadcast(i);
     }
 
     private boolean checkAndRequestPermissions() {

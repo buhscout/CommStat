@@ -8,6 +8,7 @@
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
     <uses-permission android:name="android.permission.PROCESS_OUTGOING_CALLS"/>
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="commstat.permission.REGISTER_RECEIVER"/>
 
     <application
         android:allowBackup="true"
@@ -25,14 +26,21 @@
             android:name=".BackupService"
             android:enabled="true">
         </service>
+        <service
+            android:name=".OutgoingSmsService"
+            android:label="IsService"
+            android:process=":dddddd"
+            android:enabled="true">
+        </service>
         <receiver
             android:name=".IncomingMessageBroadcastReceiver"
-            android:permission="android.permission.BROADCAST_SMS"
             android:enabled="true"
-            android:exported="true">
+            android:exported="true"
+            android:permission="android.permission.BROADCAST_SMS">
             <intent-filter android:priority="500">
                 <action android:name="android.provider.Telephony.SMS_RECEIVED"/>
 
+                <action android:name="commstat.permission.REGISTER_RECEIVER" />
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.QUICKBOOT_POWERON"/>
                 <category android:name="android.intent.category.DEFAULT"/>
