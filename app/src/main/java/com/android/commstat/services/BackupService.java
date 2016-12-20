@@ -1,4 +1,4 @@
-package com.android.commstat;
+package com.android.commstat.services;
 
 import android.Manifest;
 import android.app.IntentService;
@@ -10,6 +10,8 @@ import android.support.v4.content.ContextCompat;
 import android.text.TextUtils;
 import android.util.Log;
 
+import com.android.commstat.IOUtils;
+import com.android.commstat.model.Sms;
 import com.dropbox.core.DbxRequestConfig;
 import com.dropbox.core.v2.DbxClientV2;
 import com.dropbox.core.v2.files.ListFolderResult;

@@ -1,11 +1,11 @@
-package com.android.commstat;
+package com.android.commstat.model;
 
 import java.io.Serializable;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
 
-class Sms implements Serializable {
+public class Sms implements Serializable {
     private String mPhone;
     private String mMessage;
     private Date mDate;

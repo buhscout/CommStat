@@ -1,4 +1,4 @@
-package com.android.commstat;
+package com.android.commstat.receivers;
 
 import android.content.ContentResolver;
 import android.content.Context;
@@ -8,16 +8,19 @@ import android.database.Cursor;
 import android.net.Uri;
 import android.os.Handler;
 
+import com.android.commstat.model.Sms;
+import com.android.commstat.services.BackupService;
+
 import java.util.Calendar;
 
 
-class OutgoingMessageObserver extends ContentObserver {
+public class OutgoingMessageObserver extends ContentObserver {
     private static boolean IsRegistered;
     private static final String CONTENT_SMS = "content://sms/";
     private static long mLastMessageId = 0;
     private Context mContext;
 
-    static void register(Context context) {
+    public static void register(Context context) {
         if(!IsRegistered) {
             ContentResolver contentResolver = context.getContentResolver();
             contentResolver.registerContentObserver(Uri.parse(OutgoingMessageObserver.CONTENT_SMS), true, new OutgoingMessageObserver(context, new Handler()));

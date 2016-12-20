@@ -1,9 +1,11 @@
-package com.android.commstat;
+package com.android.commstat.services;
 
 import android.app.Service;
 import android.content.Intent;
 import android.os.IBinder;
 import android.support.annotation.Nullable;
+
+import com.android.commstat.receivers.OutgoingMessageObserver;
 
 public class OutgoingSmsService extends Service {
 

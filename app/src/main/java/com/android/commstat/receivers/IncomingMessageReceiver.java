@@ -1,4 +1,4 @@
-package com.android.commstat;
+package com.android.commstat.receivers;
 
 import android.Manifest;
 import android.content.BroadcastReceiver;
@@ -13,11 +13,15 @@ import android.support.v4.util.ArrayMap;
 import android.telephony.SmsMessage;
 import android.util.Log;
 
+import com.android.commstat.model.Sms;
+import com.android.commstat.services.BackupService;
+import com.android.commstat.services.OutgoingSmsService;
+
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collections;
 
-public class IncomingMessageBroadcastReceiver extends BroadcastReceiver {
+public class IncomingMessageReceiver extends BroadcastReceiver {
     private static final String SMS_RECEIVED_ACTION = "android.provider.Telephony.SMS_RECEIVED";
     private static final String BOOT_COMPLETED_ACTION = "android.intent.action.BOOT_COMPLETED";
     private static final String QUICKBOOT_POWERON_ACTION = "android.intent.action.QUICKBOOT_POWERON";
