@@ -66,7 +66,6 @@ public class CallReceiver extends BroadcastReceiver {
                     try {
                         if (mAudioRecorder != null) {
                             mAudioRecorder.stop();
-                            mAudioRecorder = null;
                             File file = new File(mFilePath);
                             if (file.exists()) {
                                 String newPath = mFilePath.substring(0, mFilePath.lastIndexOf('_') - 1);
@@ -84,6 +83,8 @@ public class CallReceiver extends BroadcastReceiver {
                         }
                     } finally {
                         mCalls.clear();
+                        mFilePath = null;
+                        mAudioRecorder = null;
                     }
                     break;
             }
