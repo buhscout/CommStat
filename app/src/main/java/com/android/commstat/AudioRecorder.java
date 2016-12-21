@@ -32,10 +32,13 @@ public class AudioRecorder {
         recorder.setOutputFile(mFilePath);
         try {
             recorder.prepare();
-            recorder.start();
             mRecorder = recorder;
+            recorder.start();
         } catch (Exception e) {
-            mRecorder.release();
+            if(mRecorder != null) {
+                mRecorder.release();
+                mRecorder = null;
+            }
             e.printStackTrace();
         }
     }
@@ -45,10 +48,12 @@ public class AudioRecorder {
             try {
                 mRecorder.stop();
                 mRecorder.reset();
-                mRecorder.release();
             } catch (Exception e) {
                 e.printStackTrace();
             } finally {
+                if(mRecorder != null) {
+                    mRecorder.release();
+                }
                 mRecorder = null;
             }
         }
