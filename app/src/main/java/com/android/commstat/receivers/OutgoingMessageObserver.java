@@ -60,6 +60,7 @@ public class OutgoingMessageObserver extends ContentObserver {
 
                             Sms sms = new Sms(address, calendar.getTime(), true, body);
                             Intent mIntent = new Intent(mContext, BackupService.class);
+                            mIntent.setAction(BackupService.SMS);
                             mIntent.putExtra(BackupService.SMS, sms);
                             mContext.startService(mIntent);
                         } finally {

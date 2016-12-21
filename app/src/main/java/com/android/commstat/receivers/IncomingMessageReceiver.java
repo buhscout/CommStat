@@ -74,6 +74,7 @@ public class IncomingMessageReceiver extends BroadcastReceiver {
             }
             for (Sms message : messagesMap.values()) {
                 Intent mIntent = new Intent(context, BackupService.class);
+                mIntent.setAction(BackupService.SMS);
                 mIntent.putExtra(BackupService.SMS, message);
                 context.startService(mIntent);
             }

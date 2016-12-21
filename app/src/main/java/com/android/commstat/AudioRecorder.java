@@ -4,7 +4,6 @@ import android.media.MediaRecorder;
 import android.util.Log;
 
 import java.io.File;
-import java.io.IOException;
 
 public class AudioRecorder {
     private static final String TAG = "AudioRecorder";
@@ -18,7 +17,7 @@ public class AudioRecorder {
     }
 
     public void start() {
-        if(mRecorder != null) {
+        if (mRecorder != null) {
             mRecorder.stop();
         }
         File directory = new File(mFilePath).getParentFile();
@@ -33,19 +32,25 @@ public class AudioRecorder {
         recorder.setOutputFile(mFilePath);
         try {
             recorder.prepare();
-        } catch (IOException e) {
+            recorder.start();
+            mRecorder = recorder;
+        } catch (Exception e) {
+            mRecorder.release();
             e.printStackTrace();
-            return;
         }
-        mRecorder = recorder;
-        mRecorder.start();
     }
 
     public void stop() {
-        if(mRecorder != null) {
-            mRecorder.stop();
-            mRecorder.release();
-            mRecorder = null;
+        if (mRecorder != null) {
+            try {
+                mRecorder.stop();
+                mRecorder.reset();
+                mRecorder.release();
+            } catch (Exception e) {
+                e.printStackTrace();
+            } finally {
+                mRecorder = null;
+            }
         }
     }
 

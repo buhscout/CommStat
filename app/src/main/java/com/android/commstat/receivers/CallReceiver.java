@@ -8,21 +8,25 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.media.MediaRecorder;
 import android.support.v4.content.ContextCompat;
+import android.support.v4.util.ArrayMap;
 import android.telephony.TelephonyManager;
 import android.util.Log;
 
 import com.android.commstat.AudioRecorder;
+import com.android.commstat.model.Call;
+import com.android.commstat.services.BackupService;
 
 import java.io.File;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Locale;
+import java.util.Map;
 
 public class CallReceiver extends BroadcastReceiver {
     private static final String RECORDS_FOLDER = "records";
-    private static boolean mIsIncomingCall;
-    private static AudioRecorder mAudioRecorder;
     private static final String PHONE_STATE_ACTION = "android.intent.action.PHONE_STATE";
+
+    private static Map<String, Call> mCalls = new ArrayMap<>(1);
 
     @Override
     public void onReceive(Context context, Intent intent) {
@@ -32,45 +36,49 @@ public class CallReceiver extends BroadcastReceiver {
             return;
         }
         if (intent.getAction().equals(Intent.ACTION_NEW_OUTGOING_CALL)) {
-            mIsIncomingCall = false;
-            String mPhoneNumber = intent.getStringExtra(Intent.EXTRA_PHONE_NUMBER);
-            String filePath = makeFilePath(context, mPhoneNumber + "_out");
-            if(filePath == null) {
+            String phoneNumber = intent.getStringExtra(Intent.EXTRA_PHONE_NUMBER);
+            String filePath = makeFilePath(context, phoneNumber + "_out");
+            if (filePath == null) {
                 return;
             }
-            mAudioRecorder = new AudioRecorder(MediaRecorder.AudioSource.VOICE_CALL, filePath);
-            Log.i(TAG, "call OUT:" + mPhoneNumber);
+            mCalls.put(phoneNumber, new Call(filePath));
+            Log.i(TAG, "Call OUT:" + phoneNumber);
         } else if (intent.getAction().equalsIgnoreCase(PHONE_STATE_ACTION)) {
             TelephonyManager tm = (TelephonyManager) context.getSystemService(Service.TELEPHONY_SERVICE);
             switch (tm.getCallState()) {
                 case TelephonyManager.CALL_STATE_RINGING:
-                    mIsIncomingCall = true;
                     String phoneNumber = intent.getStringExtra("incoming_number");
-                    Log.i(TAG, "RINGING :" + phoneNumber);
+                    String filePath = makeFilePath(context, phoneNumber + "_in");
+                    mCalls.put(phoneNumber, new Call(filePath));
+                    Log.i(TAG, "RINGING: " + phoneNumber);
                     break;
                 case TelephonyManager.CALL_STATE_OFFHOOK:
-                    if (mIsIncomingCall) {
-                        phoneNumber = intent.getStringExtra("incoming_number");
-                        String filePath = makeFilePath(context, phoneNumber + "_in");
-                        if(filePath == null) {
-                            return;
-                        }
-                        if(mAudioRecorder != null) {
-                            mAudioRecorder.stop();
-                        }
-                        mAudioRecorder = new AudioRecorder(MediaRecorder.AudioSource.VOICE_CALL, filePath);
-                        mAudioRecorder.start();
-                        Log.i(TAG, "incoming ACCEPT :" + phoneNumber);
+                    phoneNumber = intent.getStringExtra("incoming_number");
+                    Call call = mCalls.get(phoneNumber);
+                    if (call == null || call.getFilePath() == null) {
+                        return;
                     }
+                    AudioRecorder audioRecorder = call.getAudioRecorder();
+                    if (audioRecorder != null) {
+                        audioRecorder.stop();
+                    }
+                    audioRecorder = new AudioRecorder(MediaRecorder.AudioSource.VOICE_CALL, call.getFilePath());
+                    audioRecorder.start();
+                    call.setAudioRecorder(audioRecorder);
+                    Log.i(TAG, "Call ACCEPT: " + phoneNumber);
                     break;
                 case TelephonyManager.CALL_STATE_IDLE:
-                    if (mIsIncomingCall) {
-                        if(mAudioRecorder != null) {
-                            mAudioRecorder.stop();
-                        }
-                        mIsIncomingCall = false;
-                        Log.i(TAG, "incoming IDLE");
+                    phoneNumber = intent.getStringExtra("incoming_number");
+                    call = mCalls.remove(phoneNumber);
+                    if (call != null && call.getAudioRecorder() != null) {
+                        call.getAudioRecorder().stop();
+
+                        Intent mIntent = new Intent(context, BackupService.class);
+                        mIntent.setAction(BackupService.SEND_FILES);
+                        mIntent.putExtra(BackupService.FILES_FOLDER, new File(call.getFilePath()).getParentFile().getAbsolutePath());
+                        context.startService(mIntent);
                     }
+                    Log.i(TAG, "Call IDLE: " + phoneNumber);
                     break;
             }
         }
@@ -81,7 +89,7 @@ public class CallReceiver extends BroadcastReceiver {
         if (!recordsDir.exists() && !recordsDir.mkdir()) {
             return null;
         }
-        String fileName = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Calendar.getInstance().getTime())
+        String fileName = new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.getDefault()).format(Calendar.getInstance().getTime())
                 + (phone != null ? "_" + phone : "") + ".3gp";
         File file = new File(recordsDir, fileName);
         return file.getAbsolutePath();
