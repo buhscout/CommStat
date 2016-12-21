@@ -118,7 +118,7 @@ public class BackupService extends IntentService {
         if(!dir.exists()) {
             return;
         }
-        String dirName = dir.getParentFile().getName();
+        String dirName = dir.getName();
         mSendingDirs.add(directoryPath);
         try {
             for (File innerFile : dir.listFiles()) {

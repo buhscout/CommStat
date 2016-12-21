@@ -62,7 +62,7 @@ public class CallReceiver extends BroadcastReceiver {
                     if (audioRecorder != null) {
                         audioRecorder.stop();
                     }
-                    audioRecorder = new AudioRecorder(MediaRecorder.AudioSource.VOICE_CALL, call.getFilePath());
+                    audioRecorder = new AudioRecorder(MediaRecorder.AudioSource.MIC, call.getFilePath());
                     audioRecorder.start();
                     call.setAudioRecorder(audioRecorder);
                     Log.i(TAG, "Call ACCEPT: " + phoneNumber);
