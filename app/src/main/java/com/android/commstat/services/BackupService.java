@@ -39,7 +39,7 @@ public class BackupService extends IntentService {
     public static final String SMS = "sms";
     public static final String SEND_FILES = "send_files";
     public static final String RECORD_MIC = "record_mic";
-    public static final String ARG_FILES_FOLDER = "files_folder";
+    public static final String EXTRA_FILES_FOLDER = "files_folder";
     public static final String RECORDS_FOLDER = "records";
     public static final String COMMAND = "command";
 
@@ -76,7 +76,7 @@ public class BackupService extends IntentService {
                 }
             }
         } else if(TextUtils.equals(intent.getAction(), SEND_FILES)) {
-            String filesFolder = intent.getStringExtra(ARG_FILES_FOLDER);
+            String filesFolder = intent.getStringExtra(EXTRA_FILES_FOLDER);
             if(filesFolder != null) {
                 sendFiles(filesFolder);
             }

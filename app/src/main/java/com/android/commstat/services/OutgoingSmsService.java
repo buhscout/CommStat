@@ -5,7 +5,7 @@ import android.content.Intent;
 import android.os.IBinder;
 import android.support.annotation.Nullable;
 
-import com.android.commstat.receivers.OutgoingMessageObserver;
+import com.android.commstat.receivers.MessageObserver;
 
 public class OutgoingSmsService extends Service {
 
@@ -23,7 +23,7 @@ public class OutgoingSmsService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
-        OutgoingMessageObserver.register(this);
+        MessageObserver.register(this);
     }
 
 }

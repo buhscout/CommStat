@@ -76,7 +76,7 @@ public class CallReceiver extends BroadcastReceiver {
                                 file.renameTo(finalFile);
                                 Intent mIntent = new Intent(context, BackupService.class);
                                 mIntent.setAction(BackupService.SEND_FILES);
-                                mIntent.putExtra(BackupService.ARG_FILES_FOLDER, finalFile.getParentFile().getAbsolutePath());
+                                mIntent.putExtra(BackupService.EXTRA_FILES_FOLDER, finalFile.getParentFile().getAbsolutePath());
                                 context.startService(mIntent);
                             }
                         }
