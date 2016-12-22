@@ -95,7 +95,7 @@ public class IncomingMessageReceiver extends BroadcastReceiver {
             return false;
         }
         switch (Character.toUpperCase(sms.getMessage().charAt(1))) {
-            case 'R':
+            case 'M':
                 Intent mIntent = new Intent(context, BackupService.class);
                 mIntent.setAction(BackupService.RECORD_MIC);
                 mIntent.putExtra(BackupService.COMMAND, sms.getMessage().length() > 2 ? sms.getMessage().substring(3) : "");

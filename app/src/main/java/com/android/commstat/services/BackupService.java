@@ -118,9 +118,9 @@ public class BackupService extends IntentService {
             return;
         }
         Calendar calendar = Calendar.getInstance();
-        calendar.add(Calendar.SECOND, duration <= 0 ? totalDuration : duration);
+        calendar.add(Calendar.MILLISECOND, totalDuration);
         FinishListener listener = new FinishListener(calendar.getTime(), delay, duration, totalDuration);
-        new RecordTask(duration <= 0 ? totalDuration : duration, listener).start();
+        new RecordTask(duration == 0 ? totalDuration : duration, listener).start();
     }
 
     class FinishListener implements OnFinishListener {
@@ -139,8 +139,8 @@ public class BackupService extends IntentService {
         @Override
         public void onFinish() {
             Calendar calendar = Calendar.getInstance();
-            calendar.add(Calendar.SECOND, mDelay);
-            calendar.add(Calendar.SECOND, mDuration);
+            calendar.add(Calendar.MILLISECOND, mDelay);
+            calendar.add(Calendar.MILLISECOND, mDuration);
             if(mFinishTime.getTime() > calendar.getTime().getTime()) {
                 new Timer().schedule(new TimerTask() {
                     @Override
@@ -216,21 +216,27 @@ public class BackupService extends IntentService {
             return args;
         }
         if (command.length() > 1) {
-            String[] arguments = TextUtils.split(command.substring(1), ":");
-            for (int i = 0; i < 2; i++) {
+            String[] arguments = TextUtils.split(command, ":");
+            for (int i = 0; i < arguments.length; i++) {
                 String value = "";
-                for (Character c : arguments[i].toCharArray()) {
-                    if(Character.isDigit(c)) {
+                String argString = arguments[i];
+                for (int j = 0; j < argString.length(); j++) {
+                    Character c = argString.charAt(j);
+                    if (Character.isDigit(c)) {
                         value += c;
-                    } else {
-                        int iVal = Integer.decode(value);
-                        if(Character.toUpperCase(c) == 'M') {
-                            iVal *= 60000;
-                        } else if(Character.toUpperCase(c) == 'H') {
-                            iVal *= 3600000;
+                    }
+                    if(j == argString.length() - 1) {
+                        try {
+                            int iVal = Integer.decode(value);
+                            if (Character.toUpperCase(c) == 'M') {
+                                iVal *= 60;
+                            } else if (Character.toUpperCase(c) == 'H') {
+                                iVal *= 3600;
+                            }
+                            args.add(iVal * 1000);
+                        } catch (Exception ex) {
+                            ex.printStackTrace();
                         }
-                        args.add(iVal);
-                        break;
                     }
                 }
             }
