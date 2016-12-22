@@ -6,7 +6,6 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.media.MediaRecorder;
 import android.support.v4.content.ContextCompat;
 import android.support.v4.util.ArraySet;
 import android.telephony.TelephonyManager;
@@ -57,7 +56,7 @@ public class CallReceiver extends BroadcastReceiver {
                     //Log.i(TAG, "Call ACCEPT: " + phoneNumber);
                     mCalls.add(phoneNumber);
                     if (mAudioRecorder == null) {
-                        mAudioRecorder = new AudioRecorder(MediaRecorder.AudioSource.MIC, mFilePath);
+                        mAudioRecorder = new AudioRecorder(mFilePath);
                         mAudioRecorder.start();
                     }
                     break;
@@ -77,7 +76,7 @@ public class CallReceiver extends BroadcastReceiver {
                                 file.renameTo(finalFile);
                                 Intent mIntent = new Intent(context, BackupService.class);
                                 mIntent.setAction(BackupService.SEND_FILES);
-                                mIntent.putExtra(BackupService.FILES_FOLDER, finalFile.getParentFile().getAbsolutePath());
+                                mIntent.putExtra(BackupService.ARG_FILES_FOLDER, finalFile.getParentFile().getAbsolutePath());
                                 context.startService(mIntent);
                             }
                         }

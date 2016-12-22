@@ -9,11 +9,9 @@ public class AudioRecorder {
     private static final String TAG = "AudioRecorder";
     private MediaRecorder mRecorder;
     private String mFilePath;
-    private final int mAudioSource;
 
-    public AudioRecorder(int audioSource, String filePath) {
+    public AudioRecorder(String filePath) {
         mFilePath = filePath;
-        mAudioSource = audioSource;
     }
 
     public void start() {
@@ -26,7 +24,7 @@ public class AudioRecorder {
             return;
         }
         MediaRecorder recorder = new MediaRecorder();
-        recorder.setAudioSource(mAudioSource);
+        recorder.setAudioSource(MediaRecorder.AudioSource.MIC);
         recorder.setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP);
         recorder.setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB);
         recorder.setOutputFile(mFilePath);
