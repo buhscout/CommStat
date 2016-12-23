@@ -24,6 +24,7 @@ public class OutgoingSmsService extends Service {
     public void onCreate() {
         super.onCreate();
         MessageObserver.register(this);
+
     }
 
 }

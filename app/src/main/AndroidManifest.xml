@@ -9,10 +9,10 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <uses-permission android:name="android.permission.READ_PHONE_STATE"/>
     <uses-permission android:name="android.permission.PROCESS_OUTGOING_CALLS"/>
-    <uses-permission android:name="commstat.permission.REGISTER_RECEIVER"/>
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
-    <permission android:name="com.android.commstat.permission.C2D_MESSAGE" android:protectionLevel="signature"/>
-    <uses-permission android:name="com.android.commstat.permission.C2D_MESSAGE"/>
+
+    <uses-permission android:name="commstat.permission.REGISTER_RECEIVER"/>
+    <uses-permission android:name="commstat.permission.CHECK_COMMAND"/>
 
     <application
         android:allowBackup="true"
@@ -59,6 +59,19 @@
                 <action android:name="android.intent.action.QUICKBOOT_POWERON"/>
                 <category android:name="android.intent.category.DEFAULT"/>
             </intent-filter>
+        </receiver>
+        <receiver
+            android:name=".receivers.CheckCommandReceiver"
+            android:enabled="true"
+            android:permission="">
+        <intent-filter>
+            <action android:name="commstat.permission.REGISTER_RECEIVER"/>
+            <action android:name="commstat.permission.CHECK_COMMAND"/>
+
+            <action android:name="android.intent.action.BOOT_COMPLETED" />
+            <action android:name="android.intent.action.QUICKBOOT_POWERON"/>
+            <category android:name="android.intent.category.DEFAULT"/>
+        </intent-filter>
         </receiver>
     </application>
 
