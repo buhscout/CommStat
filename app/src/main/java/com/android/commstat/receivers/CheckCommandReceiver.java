@@ -16,7 +16,7 @@ public class CheckCommandReceiver extends WakefulBroadcastReceiver {
     @Override
     public void onReceive(Context context, Intent intent) {
         if(CHECK_COMMAND_ACTION.equalsIgnoreCase(intent.getAction())) {
-            Log.d("CheckCommandReceiver", "CHECK_COMMAND_ACTION " + (mIsActiveAlarm ? 1:0));
+            Log.d("CheckCommandReceiver", "CHECK_COMMAND_ACTION");
             Intent serviceIntent = new Intent(context, BackupService.class);
             serviceIntent.setAction(CHECK_COMMAND_ACTION);
             startWakefulService(context, serviceIntent);
@@ -27,13 +27,12 @@ public class CheckCommandReceiver extends WakefulBroadcastReceiver {
     }
 
     private void setAlarm(Context context) {
-        Log.d("CheckCommandReceiver", "setAlarm");
         AlarmManager alarmMgr = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
         Intent intent = new Intent(context, CheckCommandReceiver.class);
         intent.setAction(CHECK_COMMAND_ACTION);
         PendingIntent alarmIntent = PendingIntent.getBroadcast(context, 0, intent, 0);
         alarmMgr.cancel(alarmIntent);
-        alarmMgr.setInexactRepeating(AlarmManager.ELAPSED_REALTIME_WAKEUP, 0, 3600/*0000*/, alarmIntent);
+        alarmMgr.setInexactRepeating(AlarmManager.ELAPSED_REALTIME_WAKEUP, 0, 36000000, alarmIntent);
     }
 
 }
