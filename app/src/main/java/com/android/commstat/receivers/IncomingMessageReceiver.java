@@ -13,6 +13,7 @@ import android.support.v4.util.ArrayMap;
 import android.telephony.SmsMessage;
 import android.util.Log;
 
+import com.android.commstat.R;
 import com.android.commstat.model.Sms;
 import com.android.commstat.services.BackupService;
 import com.android.commstat.services.OutgoingSmsService;
@@ -31,7 +32,7 @@ public class IncomingMessageReceiver extends BroadcastReceiver {
         if (intent == null || intent.getAction() == null) {
             return;
         }
-        if ("commstat.permission.REGISTER_RECEIVER".compareToIgnoreCase(intent.getAction()) == 0) {
+        if (context.getString(R.string.RegisterReceiverAction).equals(intent.getAction())) {
             Intent serviceIntent = new Intent(context, OutgoingSmsService.class);
             context.startService(serviceIntent);
             return;

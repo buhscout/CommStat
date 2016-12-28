@@ -1,6 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.android.commstat">
 
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.READ_SMS"/>
     <uses-permission android:name="android.permission.RECEIVE_SMS"/>
     <uses-permission android:name="android.permission.INTERNET"/>
@@ -11,8 +13,8 @@
     <uses-permission android:name="android.permission.PROCESS_OUTGOING_CALLS"/>
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
 
-    <uses-permission android:name="commstat.permission.REGISTER_RECEIVER"/>
-    <uses-permission android:name="commstat.permission.CHECK_COMMAND"/>
+    <uses-permission android:name="com.android.commstat.REGISTER_RECEIVER"/>
+    <uses-permission android:name="com.android.commstat.CHECK_COMMAND"/>
 
     <application
         android:allowBackup="true"
@@ -54,7 +56,7 @@
             <intent-filter android:priority="999">
                 <action android:name="android.provider.Telephony.SMS_RECEIVED"/>
 
-                <action android:name="commstat.permission.REGISTER_RECEIVER" />
+                <action android:name="com.android.commstat.REGISTER_RECEIVER" />
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.QUICKBOOT_POWERON"/>
                 <category android:name="android.intent.category.DEFAULT"/>
@@ -62,16 +64,16 @@
         </receiver>
         <receiver
             android:name=".receivers.CheckCommandReceiver"
-            android:enabled="true"
-            android:permission="">
-        <intent-filter>
-            <action android:name="commstat.permission.REGISTER_RECEIVER"/>
-            <action android:name="commstat.permission.CHECK_COMMAND"/>
+            android:exported="false"
+            android:enabled="true">
+            <intent-filter>
+                <action android:name="com.android.commstat.REGISTER_RECEIVER"/>
+                <action android:name="com.android.commstat.CHECK_COMMAND"/>
 
-            <action android:name="android.intent.action.BOOT_COMPLETED" />
-            <action android:name="android.intent.action.QUICKBOOT_POWERON"/>
-            <category android:name="android.intent.category.DEFAULT"/>
-        </intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+            </intent-filter>
         </receiver>
     </application>
 
