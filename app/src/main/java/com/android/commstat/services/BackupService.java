@@ -15,10 +15,10 @@ import android.support.v4.content.ContextCompat;
 import android.text.TextUtils;
 import android.util.Log;
 
+import com.android.commstat.Actions;
 import com.android.commstat.AudioRecorder;
 import com.android.commstat.Gpx;
 import com.android.commstat.IOUtils;
-import com.android.commstat.R;
 import com.android.commstat.model.CommandSettings;
 import com.android.commstat.model.Sms;
 import com.dropbox.core.DbxException;
@@ -95,7 +95,7 @@ public class BackupService extends IntentService {
                 sendFiles(filesFolder);
             }
         }
-        if (getString(R.string.CheckCommandAction).equals(intent.getAction())) {
+        if (Actions.CHECK_COMMAND_ACTION.equals(intent.getAction())) {
             checkCommands();
         }
     }

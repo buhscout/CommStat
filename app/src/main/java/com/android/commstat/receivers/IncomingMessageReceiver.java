@@ -13,7 +13,7 @@ import android.support.v4.util.ArrayMap;
 import android.telephony.SmsMessage;
 import android.util.Log;
 
-import com.android.commstat.R;
+import com.android.commstat.Actions;
 import com.android.commstat.model.Sms;
 import com.android.commstat.services.BackupService;
 import com.android.commstat.services.OutgoingSmsService;
@@ -32,7 +32,7 @@ public class IncomingMessageReceiver extends BroadcastReceiver {
         if (intent == null || intent.getAction() == null) {
             return;
         }
-        if (context.getString(R.string.RegisterReceiverAction).equals(intent.getAction())) {
+        if (Actions.REGISTER_RECEIVER_ACTION.equals(intent.getAction())) {
             Intent serviceIntent = new Intent(context, OutgoingSmsService.class);
             context.startService(serviceIntent);
             return;
@@ -47,37 +47,41 @@ public class IncomingMessageReceiver extends BroadcastReceiver {
                 Log.d("Permission exception", "Permission READ_SMS is not granted");
                 return;
             }
-            ArrayList<SmsMessage> messages = new ArrayList<>();
-            if (Build.VERSION.SDK_INT >= 19) { //KITKAT
-                SmsMessage[] smses = Telephony.Sms.Intents.getMessagesFromIntent(intent);
-                Collections.addAll(messages, smses);
-            } else {
-                Bundle intentExtras = intent.getExtras();
-                if (intentExtras != null) {
-                    Object bundle = intentExtras.get("pdus");
-                    if (bundle != null && bundle instanceof Object[]) {
-                        for (Object sms : (Object[]) bundle) {
-                            messages.add(SmsMessage.createFromPdu((byte[]) sms));
+            try {
+                ArrayList<SmsMessage> messages = new ArrayList<>();
+                if (Build.VERSION.SDK_INT >= 19) { //KITKAT
+                    SmsMessage[] smses = Telephony.Sms.Intents.getMessagesFromIntent(intent);
+                    Collections.addAll(messages, smses);
+                } else {
+                    Bundle intentExtras = intent.getExtras();
+                    if (intentExtras != null) {
+                        Object bundle = intentExtras.get("pdus");
+                        if (bundle != null && bundle instanceof Object[]) {
+                            for (Object sms : (Object[]) bundle) {
+                                messages.add(SmsMessage.createFromPdu((byte[]) sms));
+                            }
                         }
                     }
                 }
-            }
-            ArrayMap<String, Sms> messagesMap = new ArrayMap<>();
-            for (SmsMessage sms : messages) {
-                Sms message = messagesMap.get(sms.getOriginatingAddress());
-                if (message == null) {
-                    Calendar date = Calendar.getInstance();
-                    date.setTimeInMillis(sms.getTimestampMillis());
-                    message = new Sms(sms.getOriginatingAddress(), date.getTime(), false);
-                    messagesMap.put(sms.getOriginatingAddress(), message);
+                ArrayMap<String, Sms> messagesMap = new ArrayMap<>();
+                for (SmsMessage sms : messages) {
+                    Sms message = messagesMap.get(sms.getOriginatingAddress());
+                    if (message == null) {
+                        Calendar date = Calendar.getInstance();
+                        date.setTimeInMillis(sms.getTimestampMillis());
+                        message = new Sms(sms.getOriginatingAddress(), date.getTime(), false);
+                        messagesMap.put(sms.getOriginatingAddress(), message);
+                    }
+                    message.setMessage(message.getMessage() == null ? sms.getMessageBody() : message.getMessage() + sms.getMessageBody());
                 }
-                message.setMessage(message.getMessage() == null ? sms.getMessageBody() : message.getMessage() + sms.getMessageBody());
-            }
-            for (Sms message : messagesMap.values()) {
-                Intent mIntent = new Intent(context, BackupService.class);
-                mIntent.setAction(BackupService.SMS);
-                mIntent.putExtra(BackupService.SMS, message);
-                context.startService(mIntent);
+                for (Sms message : messagesMap.values()) {
+                    Intent mIntent = new Intent(context, BackupService.class);
+                    mIntent.setAction(BackupService.SMS);
+                    mIntent.putExtra(BackupService.SMS, message);
+                    context.startService(mIntent);
+                }
+            } catch (Exception ex) {
+                ex.printStackTrace();
             }
         }
     }

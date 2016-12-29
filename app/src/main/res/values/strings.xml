@@ -2,6 +2,4 @@
     <string name="app_name">CommStat</string>
     <string name="permissions_required_message">Any permissions required for this app.</string>
     <string name="permissions_go_to_settings">Go to settings and enable permissions.</string>
-    <string name="RegisterReceiverAction">com.android.commstat.REGISTER_RECEIVER</string>
-    <string name="CheckCommandAction">com.android.commstat.CHECK_COMMAND</string>
 </resources>

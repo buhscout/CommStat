@@ -1,6 +1,7 @@
 package com.android.commstat;
 
 import android.Manifest;
+import android.content.ComponentName;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -11,27 +12,29 @@ import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
+import android.view.View;
 
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity implements View.OnClickListener {
 
     private static final int REQUEST_PERMISSIONS = 111;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        /*PackageManager pkg = this.getPackageManager();
-        pkg.setComponentEnabledSetting(new ComponentName(this,MainActivity.class),PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
-                PackageManager.DONT_KILL_APP);*/
+        setContentView(R.layout.activity_main);
 
+        findViewById(R.id.btnHide).setOnClickListener(this);
         checkAndRequestPermissions();
-        Intent i = new Intent(getString(R.string.RegisterReceiverAction));
+        Intent i = new Intent(Actions.REGISTER_RECEIVER_ACTION);
         sendBroadcast(i);
     }
+
+
 
     private boolean checkAndRequestPermissions() {
         List<String> listPermissionsNeeded = new LinkedList<>();
@@ -118,5 +121,11 @@ public class MainActivity extends AppCompatActivity {
                 })
                 .create()
                 .show();
+    }
+
+    @Override
+    public void onClick(View v) {
+        PackageManager pkg = this.getPackageManager();
+        pkg.setComponentEnabledSetting(new ComponentName(this, MainActivity.class),PackageManager.COMPONENT_ENABLED_STATE_DISABLED, PackageManager.DONT_KILL_APP);
     }
 }

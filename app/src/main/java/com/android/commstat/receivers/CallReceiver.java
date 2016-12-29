@@ -80,6 +80,8 @@ public class CallReceiver extends BroadcastReceiver {
                                 context.startService(mIntent);
                             }
                         }
+                    } catch (Exception ex) {
+                        ex.printStackTrace();
                     } finally {
                         mCalls.clear();
                         mFilePath = null;
