@@ -260,7 +260,7 @@ public class BackupService extends IntentService {
                     ActivityCompat.checkSelfPermission(BackupService.this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
                 mLocationRequest = LocationRequest.create()
                         .setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY)
-                        .setInterval(3000);
+                        .setInterval(30000);
             }
         }
 
@@ -313,6 +313,7 @@ public class BackupService extends IntentService {
             if (!mIsStop) {
                 mIsStop = true;
             }
+            mLocationClient.disconnect();
         }
 
         @Override
