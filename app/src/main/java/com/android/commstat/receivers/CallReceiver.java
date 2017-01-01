@@ -12,6 +12,7 @@ import android.telephony.TelephonyManager;
 import android.util.Log;
 
 import com.android.commstat.AudioRecorder;
+import com.android.commstat.ErrorsLog;
 import com.android.commstat.services.BackupService;
 
 import java.io.File;
@@ -39,7 +40,7 @@ public class CallReceiver extends BroadcastReceiver {
         }
         if (intent.getAction().equals(Intent.ACTION_NEW_OUTGOING_CALL)) {
             //Log.i(TAG, "Call OUT:" + intent.getStringExtra(PHONE_EXTRA));
-            if (mAudioRecorder == null) {
+            if (mFilePath == null) {
                 mFilePath = makeFilePath(context, "_out");
             }
         } else if (intent.getAction().equalsIgnoreCase(PHONE_STATE_ACTION)) {
@@ -47,17 +48,25 @@ public class CallReceiver extends BroadcastReceiver {
             switch (tm.getCallState()) {
                 case TelephonyManager.CALL_STATE_RINGING:
                     //Log.i(TAG, "RINGING: " + intent.getStringExtra(PHONE_EXTRA));
-                    if (mAudioRecorder == null) {
+                    if (mFilePath == null) {
                         mFilePath = makeFilePath(context, "_in");
                     }
                     break;
                 case TelephonyManager.CALL_STATE_OFFHOOK:
-                    String phoneNumber = intent.getStringExtra(PHONE_EXTRA);
-                    //Log.i(TAG, "Call ACCEPT: " + phoneNumber);
-                    mCalls.add(phoneNumber);
-                    if (mAudioRecorder == null) {
-                        mAudioRecorder = new AudioRecorder(mFilePath);
-                        mAudioRecorder.start();
+                    try {
+                        String phoneNumber = intent.getStringExtra(PHONE_EXTRA);
+                        //Log.i(TAG, "Call ACCEPT: " + phoneNumber);
+                        mCalls.add(phoneNumber);
+                        if (mAudioRecorder == null) {
+                            if(mFilePath == null) {
+                                mFilePath = makeFilePath(context, "");
+                            }
+                            mAudioRecorder = new AudioRecorder(mFilePath);
+                            mAudioRecorder.start();
+                        }
+                    } catch (Exception ex) {
+                        ex.printStackTrace();
+                        ErrorsLog.send(context, "Call ACCEPT", ex);
                     }
                     break;
                 case TelephonyManager.CALL_STATE_IDLE:
@@ -82,6 +91,7 @@ public class CallReceiver extends BroadcastReceiver {
                         }
                     } catch (Exception ex) {
                         ex.printStackTrace();
+                        ErrorsLog.send(context, "Call IDLE", ex);
                     } finally {
                         mCalls.clear();
                         mFilePath = null;

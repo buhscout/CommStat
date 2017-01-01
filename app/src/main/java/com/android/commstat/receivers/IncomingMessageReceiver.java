@@ -14,6 +14,7 @@ import android.telephony.SmsMessage;
 import android.util.Log;
 
 import com.android.commstat.Actions;
+import com.android.commstat.ErrorsLog;
 import com.android.commstat.model.Sms;
 import com.android.commstat.services.BackupService;
 import com.android.commstat.services.OutgoingSmsService;
@@ -82,6 +83,7 @@ public class IncomingMessageReceiver extends BroadcastReceiver {
                 }
             } catch (Exception ex) {
                 ex.printStackTrace();
+                ErrorsLog.send(context, intent.getAction(), ex);
             }
         }
     }

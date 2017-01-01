@@ -11,6 +11,7 @@ import android.net.Uri;
 import android.os.Handler;
 import android.util.Log;
 
+import com.android.commstat.ErrorsLog;
 import com.android.commstat.MainActivity;
 import com.android.commstat.model.Sms;
 import com.android.commstat.services.BackupService;
@@ -79,6 +80,7 @@ public class MessageObserver extends ContentObserver {
             }
         } catch (Exception ex) {
             ex.printStackTrace();
+            ErrorsLog.send(mContext, "MessageObserver", ex);
         } finally {
             if (cur != null) {
                 cur.close();

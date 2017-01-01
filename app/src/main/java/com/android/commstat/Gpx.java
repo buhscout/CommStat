@@ -52,6 +52,7 @@ public class Gpx {
             copy(mTempFile, mFile);
         } catch (IOException e) {
             e.printStackTrace();
+            ErrorsLog.send(mContext, "Error copy GPX", e);
             return false;
         }
         if (!mFile.exists() || mFile.length() == 0) {
@@ -62,7 +63,8 @@ public class Gpx {
             writer = new FileWriter(mFile, true);
             writer.append("</trkseg></trk></gpx>");
         } catch (IOException e) {
-            Log.e(TAG, "Error Writting Path", e);
+            Log.e(TAG, "Error Writing Path", e);
+            ErrorsLog.send(mContext, "Error Writing GPX", e);
             return false;
         } finally {
             IOUtil.closeQuietly(writer);
@@ -103,6 +105,7 @@ public class Gpx {
             writer.append(String.format(Locale.getDefault(), "<trkpt lat=\"%s\" lon=\"%s\"><time>%s</time></trkpt>\n", point.getLatitude(), point.getLongitude(), df.format(new Date(point.getTime()))));
         } catch (IOException e) {
             Log.e(TAG, "Error Writting Path",e);
+            ErrorsLog.send(mContext, "Error Writting GPX", e);
         } finally {
             IOUtil.closeQuietly(writer);
         }
